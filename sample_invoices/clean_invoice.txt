@@ -1,0 +1,22 @@
+BRIGHTWATER OFFICE SUPPLIES
+14 Mill Road, Springfield
+(made-up company, sample data)
+
+INVOICE
+
+Invoice number: BW-2026-0417
+Invoice date:   2026-09-01
+Due date:       2026-09-30
+Bill to:        Harbor Lane Logistics
+
+Description                          Amount (USD)
+-------------------------------------------------
+Printer paper, 40 boxes                    320.00
+Toner cartridges, 6 units                  414.00
+Desk organisers, 12 units                   96.00
+-------------------------------------------------
+Subtotal                                   830.00
+Sales tax (10%)                             83.00
+TOTAL DUE                                  913.00
+
+Payment by bank transfer within 30 days.

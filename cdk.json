@@ -1,0 +1,6 @@
+{
+  "app": "python infra/app.py",
+  "watch": {
+    "include": ["infra/**", "prompts/**"]
+  }
+}

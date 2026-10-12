@@ -1,0 +1,10 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+exclude = ["build", "cdk.out", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]

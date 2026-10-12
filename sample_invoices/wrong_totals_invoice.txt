@@ -1,0 +1,22 @@
+NORTHGATE FLEET SERVICES
+220 Depot Lane, Riverton
+(made-up company, sample data)
+
+INVOICE
+
+Invoice number: NFS-88213
+Invoice date:   2026-08-14
+Due date:       2026-09-13
+Bill to:        Harbor Lane Logistics
+
+Description                          Amount (USD)
+-------------------------------------------------
+Truck service, vehicle 12                  640.00
+Brake pads, front and rear                 285.00
+Tyre replacement, 2 units                  510.00
+-------------------------------------------------
+Subtotal                                 1,535.00
+Sales tax (10%)                            153.50
+TOTAL DUE                                1,688.50
+
+Payment by bank transfer within 30 days.
