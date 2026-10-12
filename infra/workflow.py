@@ -36,9 +36,9 @@ CATCH = [
 ]
 
 INVOICE_TOOL = {
-    "name": "record_invoice",
-    "description": "Record the fields found in an invoice.",
-    "input_schema": {
+    "Name": "record_invoice",
+    "Description": "Record the fields found in an invoice.",
+    "InputSchema": {
         "type": "object",
         "properties": {
             "supplier_name": {"type": "string"},
@@ -76,9 +76,9 @@ INVOICE_TOOL = {
 }
 
 REVIEW_TOOL = {
-    "name": "record_review",
-    "description": "Record the problems found in an invoice.",
-    "input_schema": {
+    "Name": "record_review",
+    "Description": "Record the problems found in an invoice.",
+    "InputSchema": {
         "type": "object",
         "properties": {
             "issues": {
@@ -106,9 +106,11 @@ TOTAL_CHECK = (
 # Square brackets join the two results into one list and skip empty ones.
 TOTALS_ISSUES = "{% [" + LINES_CHECK + ", " + TOTAL_CHECK + "] %}"
 
-ALL_ISSUES = "{% [$totalsIssues, $states.result.Body.content[type='tool_use'][0].input.issues] %}"
-TOOL_INPUT = "{% $states.result.Body.content[type='tool_use'][0].input %}"
-TEXT_OUTPUT = "{% $states.result.Body.content[type='text'][0].text %}"
+# Where the answer sits in a Bedrock Converse response.
+REPLY = "$states.result.Output.Message.Content"
+TOOL_INPUT = "{% " + REPLY + ".ToolUse[0].Input %}"
+TEXT_OUTPUT = "{% $join(" + REPLY + ".Text) %}"
+ALL_ISSUES = "{% [$totalsIssues, " + REPLY + ".ToolUse[0].Input.issues] %}"
 
 
 def load_prompt(name):
@@ -116,28 +118,43 @@ def load_prompt(name):
 
 
 def model_call(model_id, prompt_name, user_content, max_tokens, tool=None):
-    """Build a task that calls the model on Bedrock."""
-    body = {
-        "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": max_tokens,
-        "system": load_prompt(prompt_name),
-        "messages": [{"role": "user", "content": user_content}],
+    """Build a task that calls the model on Bedrock.
+
+    It uses the Converse API, which has the same request and response
+    format for every model, so the model can be swapped without code changes.
+    """
+    arguments = {
+        "ModelId": model_id,
+        "System": [{"Text": load_prompt(prompt_name)}],
+        "Messages": [{"Role": "user", "Content": user_content}],
+        "InferenceConfig": {"MaxTokens": max_tokens},
     }
     if tool:
-        # Force the model to answer through the tool, so we always get JSON.
-        body["tools"] = [tool]
-        body["tool_choice"] = {"type": "tool", "name": tool["name"]}
+        # The prompt tells the model to answer through the tool. The choice is
+        # left on auto because not every model accepts a forced tool choice.
+        arguments["ToolConfig"] = {
+            "Tools": [
+                {
+                    "ToolSpec": {
+                        "Name": tool["Name"],
+                        "Description": tool["Description"],
+                        "InputSchema": {"Json": tool["InputSchema"]},
+                    }
+                }
+            ],
+            "ToolChoice": {"Auto": {}},
+        }
     return {
         "Type": "Task",
-        "Resource": "arn:aws:states:::bedrock:invokeModel",
-        "Arguments": {"ModelId": model_id, "Body": body},
+        "Resource": "arn:aws:states:::aws-sdk:bedrockruntime:converse",
+        "Arguments": arguments,
         "Retry": RETRY,
         "Catch": CATCH,
     }
 
 
 def text_block(text):
-    return {"type": "text", "text": text}
+    return {"Text": text}
 
 
 def save_item(table_name, attributes):
@@ -254,6 +271,7 @@ def build_definition(model_id, table_name):
             table_name,
             {
                 "status": {"S": "{% $status %}"},
+                "model_id": {"S": model_id},
                 "supplier_name": {"S": "{% $invoice.supplier_name %}"},
                 "invoice_number": {"S": "{% $invoice.invoice_number %}"},
                 "currency": {"S": "{% $invoice.currency %}"},

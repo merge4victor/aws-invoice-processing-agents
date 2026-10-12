@@ -84,7 +84,18 @@ def test_model_calls_use_the_given_model_and_prompts():
     ]:
         arguments = STATES[name]["Arguments"]
         assert arguments["ModelId"] == "test-model"
-        assert arguments["Body"]["system"] == workflow.load_prompt(prompt)
+        assert arguments["System"] == [{"Text": workflow.load_prompt(prompt)}]
+
+
+def test_model_calls_work_with_any_bedrock_model():
+    # Converse has one format for all models. Nothing in the request may be
+    # specific to one model provider.
+    for name in ["ExtractFields", "ReviewInvoice", "WriteSummary"]:
+        state = STATES[name]
+        assert state["Resource"] == "arn:aws:states:::aws-sdk:bedrockruntime:converse"
+        assert "anthropic" not in str(state).lower()
+    for name in ["ExtractFields", "ReviewInvoice"]:
+        assert STATES[name]["Arguments"]["ToolConfig"]["ToolChoice"] == {"Auto": {}}
 
 
 def test_results_are_written_to_the_given_table():
@@ -127,7 +138,8 @@ def test_totals_check_finds_both_problems():
 
 def model_result(tool_input):
     """A Bedrock response where the model answered through a tool."""
-    return {"result": {"Body": {"content": [{"type": "tool_use", "input": tool_input}]}}}
+    content = [{"Text": "Recording it now."}, {"ToolUse": {"Input": tool_input}}]
+    return {"result": {"Output": {"Message": {"Content": content}}}}
 
 
 @pytest.mark.parametrize(
@@ -154,7 +166,14 @@ def test_tool_input_is_read_from_the_model_response():
 
 
 def test_summary_text_is_read_from_the_model_response():
-    states = {"result": {"Body": {"content": [{"type": "text", "text": "All good."}]}}}
+    content = [{"Text": "All good."}]
+    states = {"result": {"Output": {"Message": {"Content": content}}}}
+    assert evaluate(workflow.TEXT_OUTPUT, states=states) == "All good."
+
+
+def test_summary_text_in_several_blocks_is_joined():
+    content = [{"Text": "All "}, {"ReasoningContent": {}}, {"Text": "good."}]
+    states = {"result": {"Output": {"Message": {"Content": content}}}}
     assert evaluate(workflow.TEXT_OUTPUT, states=states) == "All good."
 
 

@@ -37,7 +37,7 @@ flowchart TD
 | Review agent | Looks for problems a rule cannot catch, such as a missing invoice number or a due date before the invoice date. |
 | Summary agent | Writes two or three sentences for the person who approves payments. |
 
-Each agent is one call to Claude on Amazon Bedrock with its own prompt. The
+Each agent is one call to a model on Amazon Bedrock with its own prompt. The
 prompts are plain text files in `prompts/`.
 
 ## Sample invoices
@@ -69,9 +69,11 @@ different paths through the workflow:
   and the agents are used only for reading and judgement.
 - **Small agents with one job each.** Each agent has a short prompt and a
   narrow task. That makes each one easy to test, change, or replace.
-- **Structured output through tools.** The extract and review agents must
-  answer through a tool with a fixed schema, so the workflow always gets JSON
-  it can use.
+- **Structured output through tools.** The extract and review agents answer
+  through a tool with a fixed schema, so the workflow gets JSON it can use.
+- **Any Bedrock model.** The workflow uses the Bedrock Converse API, which has
+  one request format for all models. Changing the model is a deploy setting,
+  not a code change.
 - **No Lambda functions.** Step Functions calls Bedrock, S3 and DynamoDB
   itself. There is no application code to patch, package, or keep warm.
 - **Nothing is lost.** Each step retries twice. If it still fails, the invoice
@@ -102,7 +104,8 @@ You also need:
 
 - An AWS account with credentials set up for the AWS CLI.
 - The AWS CDK CLI: `npm install -g aws-cdk`.
-- Access to the Claude model in Amazon Bedrock in the region you deploy to.
+- Access to the model you want to use in Amazon Bedrock, in the region you
+  deploy to.
 
 ```bash
 # Run 'cdk bootstrap' once per account and region
@@ -120,15 +123,34 @@ The script uploads the file, waits for the workflow, and prints the status,
 the issues that were found, and the summary. You can also watch each step run
 in the Step Functions console.
 
-### Use a different model
+### Choose a model
+
+The default model is Claude Haiku 4.5. You can use any text model on Amazon
+Bedrock instead, from Anthropic, Amazon, Meta, Mistral or another provider.
+Pass its model id or inference profile id when you deploy:
 
 ```bash
-cdk deploy -c model_id=<model or inference profile id>
+cdk deploy -c model_id=amazon.nova-lite-v1:0
 ```
 
-The extract and review steps force the model to answer through a tool. Some
-newer models do not accept a forced tool choice. For those, change
-`tool_choice` in `infra/workflow.py` to `{"type": "auto"}`.
+List the model ids and inference profile ids in your region:
+
+```bash
+aws bedrock list-foundation-models --by-output-modality TEXT --query "modelSummaries[].modelId"
+```
+
+```bash
+aws bedrock list-inference-profiles --query "inferenceProfileSummaries[].inferenceProfileId"
+```
+
+Two things to check for the model you pick:
+
+- Your account has access to it in the region you deploy to.
+- It supports tool use with the Bedrock Converse API. The extract and review
+  agents return their results through a tool.
+
+The model id that was used is saved with each result, so you can compare
+models on the same invoices.
 
 ## What is saved
 
@@ -138,6 +160,7 @@ One item per invoice in the DynamoDB table:
 |---|---|
 | `invoice_key` | `clean_invoice.txt` |
 | `status` | `APPROVED`, `NEEDS_REVIEW` or `FAILED` |
+| `model_id` | The model that processed the invoice. |
 | `supplier_name` | `Brightwater Office Supplies` |
 | `invoice_number` | `BW-2026-0417` |
 | `total`, `currency` | `913`, `USD` |
